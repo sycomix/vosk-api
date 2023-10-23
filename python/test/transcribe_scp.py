@@ -21,9 +21,9 @@ def recognize(line):
             break
         if rec.AcceptWaveform(data):
             jres = json.loads(rec.Result())
-            text = text + " " + jres["text"]
+            text = f"{text} " + jres["text"]
     jres = json.loads(rec.FinalResult())
-    text = text + " " + jres["text"]
+    text = f"{text} " + jres["text"]
     return uid + text
 
 def main():

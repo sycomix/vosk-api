@@ -16,7 +16,7 @@ with open(sys.argv[1]) as fn:
     fnames = fn.readlines()
     fds = [open(x.strip(), "rb") for x in fnames]
     uids = [fname.strip().split("/")[-1][:-4] for fname in fnames]
-    recs = [BatchRecognizer(model, 16000) for x in fnames]
+    recs = [BatchRecognizer(model, 16000) for _ in fnames]
     results = [""] * len(fnames)
 
 ended = set()
@@ -44,7 +44,7 @@ while True:
     for i, fd in enumerate(fds):
         res = recs[i].Result()
         if len(res) != 0:
-            results[i] = results[i] + " " + json.loads(res)["text"]
+            results[i] = f"{results[i]} " + json.loads(res)["text"]
 
     if len(ended) == len(fds):
         break

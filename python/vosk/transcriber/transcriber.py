@@ -61,7 +61,7 @@ class Transcriber:
                 await websocket.send(data)
                 jres = json.loads(await websocket.recv())
                 logging.info(jres)
-                if not "partial" in jres:
+                if "partial" not in jres:
                     result.append(jres)
             await websocket.send('{"eof" : 1}')
             jres = json.loads(await websocket.recv())
@@ -77,7 +77,7 @@ class Transcriber:
             subs = []
 
             for _, res in enumerate(result):
-                if not "result" in res:
+                if "result" not in res:
                     continue
                 words = res["result"]
 
@@ -101,25 +101,35 @@ class Transcriber:
                 if part["text"] != "":
                     monologues["text"] += part["text"]
             for _, res in enumerate(result):
-                if not "result" in res:
+                if "result" not in res:
                     continue
-                monologue = { "speaker": {"id": "unknown", "name": None}, "start": 0, "end": 0, "terms": []}
-                monologue["start"] = res["result"][0]["start"]
-                monologue["end"] = res["result"][-1]["end"]
-                monologue["terms"] = [{"confidence": t["conf"], "start": t["start"], "end": t["end"], "text": t["word"], "type": "WORD" } for t in res["result"]]
+                monologue = {
+                    "speaker": {"id": "unknown", "name": None},
+                    "start": res["result"][0]["start"],
+                    "end": res["result"][-1]["end"],
+                    "terms": [
+                        {
+                            "confidence": t["conf"],
+                            "start": t["start"],
+                            "end": t["end"],
+                            "text": t["word"],
+                            "type": "WORD",
+                        }
+                        for t in res["result"]
+                    ],
+                }
                 monologues["monologues"].append(monologue)
             processed_result = json.dumps(monologues)
         return processed_result
 
     def resample_ffmpeg(self, infile):
-        cmd = shlex.split("ffmpeg -nostdin -loglevel quiet "
-                "-i \'{}\' -ar {} -ac 1 -f s16le -".format(str(infile), SAMPLE_RATE))
-        stream = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        return stream
+        cmd = shlex.split(
+            f"ffmpeg -nostdin -loglevel quiet -i \'{str(infile)}\' -ar {SAMPLE_RATE} -ac 1 -f s16le -"
+        )
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
     async def resample_ffmpeg_async(self, infile):
-        cmd = "ffmpeg -nostdin -loglevel quiet "\
-        "-i \'{}\' -ar {} -ac 1 -f s16le -".format(str(infile), SAMPLE_RATE)
+        cmd = f"ffmpeg -nostdin -loglevel quiet -i \'{str(infile)}\' -ar {SAMPLE_RATE} -ac 1 -f s16le -"
         return await asyncio.create_subprocess_shell(cmd, stdout=subprocess.PIPE)
 
     async def server_worker(self):
@@ -129,7 +139,7 @@ class Transcriber:
             except Exception:
                 break
 
-            logging.info("Recognizing {}".format(input_file))
+            logging.info(f"Recognizing {input_file}")
             start_time = timer()
             proc = await self.resample_ffmpeg_async(input_file)
             result, tot_samples = await self.recognize_stream_server(proc)
@@ -142,7 +152,7 @@ class Transcriber:
 
             processed_result = self.format_result(result)
             if output_file != "":
-                logging.info("File {} processing complete".format(output_file))
+                logging.info(f"File {output_file} processing complete")
                 with open(output_file, "w", encoding="utf-8") as fh:
                     fh.write(processed_result)
             else:
@@ -150,11 +160,11 @@ class Transcriber:
 
             elapsed = timer() - start_time
             logging.info("Execution time: {:.3f} sec; "\
-                    "xRT {:.3f}".format(elapsed, float(elapsed) * (2 * SAMPLE_RATE) / tot_samples))
+                        "xRT {:.3f}".format(elapsed, float(elapsed) * (2 * SAMPLE_RATE) / tot_samples))
             self.queue.task_done()
 
     def pool_worker(self, inputdata):
-        logging.info("Recognizing {}".format(inputdata[0]))
+        logging.info(f"Recognizing {inputdata[0]}")
         start_time = timer()
 
         try:
@@ -174,7 +184,7 @@ class Transcriber:
 
         processed_result = self.format_result(result)
         if inputdata[1] != "":
-            logging.info("File {} processing complete".format(inputdata[1]))
+            logging.info(f"File {inputdata[1]} processing complete")
             with open(inputdata[1], "w", encoding="utf-8") as fh:
                 fh.write(processed_result)
         else:
@@ -182,12 +192,15 @@ class Transcriber:
 
         elapsed = timer() - start_time
         logging.info("Execution time: {:.3f} sec; "\
-                "xRT {:.3f}".format(elapsed, float(elapsed) * (2 * SAMPLE_RATE) / tot_samples))
+                    "xRT {:.3f}".format(elapsed, float(elapsed) * (2 * SAMPLE_RATE) / tot_samples))
 
     async def process_task_list_server(self, task_list):
         for x in task_list:
             self.queue.put(x)
-        workers = [asyncio.create_task(self.server_worker()) for i in range(self.args.tasks)]
+        workers = [
+            asyncio.create_task(self.server_worker())
+            for _ in range(self.args.tasks)
+        ]
         await asyncio.gather(*workers)
 
     def process_task_list_pool(self, task_list):

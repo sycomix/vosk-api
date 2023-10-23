@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 # Remote location of the models and local folders
 MODEL_PRE_URL = "https://alphacephei.com/vosk/models/"
-MODEL_LIST_URL = MODEL_PRE_URL + "model-list.json"
+MODEL_LIST_URL = f"{MODEL_PRE_URL}model-list.json"
 MODEL_DIRS = [os.getenv("VOSK_MODEL_PATH"), Path("/usr/share/vosk"),
         Path.home() / "AppData/Local/vosk", Path.home() / ".cache/vosk"]
 
@@ -48,11 +48,9 @@ def list_languages():
 
 class Model:
     def __init__(self, model_path=None, model_name=None, lang=None):
-        if model_path is not None:
-            self._handle = _c.vosk_model_new(model_path.encode("utf-8"))
-        else:
+        if model_path is None:
             model_path = self.get_model_path(model_name, lang)
-            self._handle = _c.vosk_model_new(model_path.encode("utf-8"))
+        self._handle = _c.vosk_model_new(model_path.encode("utf-8"))
         if self._handle == _ffi.NULL:
             raise Exception("Failed to create a model")
 
@@ -79,46 +77,60 @@ class Model:
             if model_file != []:
                 return Path(directory, model_file[0])
         response = requests.get(MODEL_LIST_URL, timeout=10)
-        result_model = [model["name"] for model in response.json() if model["name"] == model_name]
-        if result_model == []:
-            print("model name %s does not exist" % (model_name))
-            sys.exit(1)
-        else:
+        if result_model := [
+            model["name"]
+            for model in response.json()
+            if model["name"] == model_name
+        ]:
             self.download_model(Path(directory, result_model[0]))
             return Path(directory, result_model[0])
+        else:
+            print(f"model name {model_name} does not exist")
+            sys.exit(1)
 
     def get_model_by_lang(self, lang):
         for directory in MODEL_DIRS:
             if directory is None or not Path(directory).exists():
                 continue
             model_file_list = os.listdir(directory)
-            model_file = [model for model in model_file_list if
-                    match(r"vosk-model(-small)?-{}".format(lang), model)]
+            model_file = [
+                model
+                for model in model_file_list
+                if match(f"vosk-model(-small)?-{lang}", model)
+            ]
             if model_file != []:
                 return Path(directory, model_file[0])
         response = requests.get(MODEL_LIST_URL, timeout=10)
-        result_model = [model["name"] for model in response.json() if
-                model["lang"] == lang and model["type"] == "small" and model["obsolete"] == "false"]
-        if result_model == []:
-            print("lang %s does not exist" % (lang))
-            sys.exit(1)
-        else:
+        if result_model := [
+            model["name"]
+            for model in response.json()
+            if model["lang"] == lang
+            and model["type"] == "small"
+            and model["obsolete"] == "false"
+        ]:
             self.download_model(Path(directory, result_model[0]))
             return Path(directory, result_model[0])
+        else:
+            print(f"lang {lang} does not exist")
+            sys.exit(1)
 
     def download_model(self, model_name):
         if not (model_name.parent).exists():
             (model_name.parent).mkdir(parents=True)
         with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1,
-                desc=(MODEL_PRE_URL + str(model_name.name) + ".zip").rsplit("/",
-                    maxsplit=1)[-1]) as t:
+                    desc=(MODEL_PRE_URL + str(model_name.name) + ".zip").rsplit("/",
+                        maxsplit=1)[-1]) as t:
             reporthook = self.download_progress_hook(t)
-            urlretrieve(MODEL_PRE_URL + str(model_name.name) + ".zip",
-                    str(model_name) + ".zip", reporthook=reporthook, data=None)
+            urlretrieve(
+                MODEL_PRE_URL + str(model_name.name) + ".zip",
+                f"{str(model_name)}.zip",
+                reporthook=reporthook,
+                data=None,
+            )
             t.total = t.n
-            with ZipFile(str(model_name) + ".zip", "r") as model_ref:
+            with ZipFile(f"{str(model_name)}.zip", "r") as model_ref:
                 model_ref.extractall(model_name.parent)
-            Path(str(model_name) + ".zip").unlink()
+            Path(f"{str(model_name)}.zip").unlink()
 
     def download_progress_hook(self, t):
         last_b = [0]
@@ -211,7 +223,7 @@ class KaldiRecognizer:
         subs = []
         for res in results:
             jres = json.loads(res)
-            if not "result" in jres:
+            if "result" not in jres:
                 continue
             words = jres["result"]
             for j in range(0, len(words), words_per_line):

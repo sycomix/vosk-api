@@ -55,17 +55,9 @@ try:
         device_info = sd.query_devices(args.device, "input")
         # soundfile expects an int, sounddevice provides a float:
         args.samplerate = int(device_info["default_samplerate"])
-        
-    if args.model is None:
-        model = Model(lang="en-us")
-    else:
-        model = Model(lang=args.model)
 
-    if args.filename:
-        dump_fn = open(args.filename, "wb")
-    else:
-        dump_fn = None
-
+    model = Model(lang="en-us") if args.model is None else Model(lang=args.model)
+    dump_fn = open(args.filename, "wb") if args.filename else None
     with sd.RawInputStream(samplerate=args.samplerate, blocksize = 8000, device=args.device,
             dtype="int16", channels=1, callback=callback):
         print("#" * 80)
@@ -86,4 +78,4 @@ except KeyboardInterrupt:
     print("\nDone")
     parser.exit(0)
 except Exception as e:
-    parser.exit(type(e).__name__ + ": " + str(e))
+    parser.exit(f"{type(e).__name__}: {str(e)}")

@@ -71,9 +71,15 @@ def main():
     transcriber = Transcriber(args)
 
     if Path(args.input).is_dir():
-        task_list = [(Path(args.input, fn),
-            Path(args.output,
-            Path(fn).stem).with_suffix("." + args.output_type)) for fn in os.listdir(args.input)]
+        task_list = [
+            (
+                Path(args.input, fn),
+                Path(args.output, Path(fn).stem).with_suffix(
+                    f".{args.output_type}"
+                ),
+            )
+            for fn in os.listdir(args.input)
+        ]
     elif Path(args.input).is_file():
         if args.output == "":
             task_list = [(Path(args.input), args.output)]

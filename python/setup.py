@@ -34,7 +34,7 @@ else:
             elif system == 'Linux' and machine == 'aarch64' and architecture == '64bit':
                 oses = 'manylinux2014_aarch64'
             elif system == 'Linux':
-                oses = 'linux_' + machine
+                oses = f'linux_{machine}'
             else:
                 raise TypeError("Unknown build environment")
             return 'py3', abi, oses
